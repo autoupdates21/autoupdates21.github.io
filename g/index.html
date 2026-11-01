@@ -22,22 +22,24 @@
   .count .second { font-size: 11px; }
   .muted { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
   .center { text-align: center; margin: 24px 0; }
-  .thanks { text-align: center; font-size: 20px; font-weight: 700; margin: 8px 0 12px; }
+  .thanks { text-align: center; font-size: 17px; font-weight: 700; margin: 8px 0 6px; color: var(--finish); }
   .counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
   .count { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 6px; text-align: center; }
   .count b { display: block; font-size: 18px; }
   .count span { color: var(--muted); font-size: 12px; }
-  .track { height: 6px; border-radius: 3px; background: var(--border); margin-top: 12px; overflow: hidden; }
-  .bar { height: 6px; background: var(--accent); }
   h2 { color: var(--accent); font-size: 17px; font-weight: 700; margin: 14px 0 4px; }
   .perek { direction: rtl; text-align: right; font-family: EzraSIL, serif; font-size: 22px; line-height: 1.8; margin: 0 0 16px; overflow-wrap: break-word; }
   .perek b { color: var(--accent); font-size: 13px; font-family: system-ui, sans-serif; }
   button, a.btn { display: block; width: 100%; font: inherit; text-align: center; text-decoration: none; cursor: pointer; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 8px; background: var(--card); color: var(--text); }
   .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row.one { grid-template-columns: minmax(0, 1fr); }
   .row button { font-size: 13px; padding: 10px 4px; }
+  .totals { color: var(--muted); font-size: 13px; text-align: center; margin: 0 0 10px; }
   button.finish { background: var(--finish); border-color: var(--finish); color: #fff; font-weight: 700; }
   button.main { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
   button:disabled { opacity: 0.6; }
+  button.finish:disabled { opacity: 1; }
   .error { color: #C0392B; font-size: 14px; text-align: center; margin: 0 0 8px; }
   footer { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 12px; color: var(--muted); font-size: 13px; text-align: center; }
   footer a { color: inherit; }

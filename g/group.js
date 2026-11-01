@@ -4,7 +4,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
 import { doc, getFirestore, runTransaction } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore-lite.js';
 
-import { PERAKIM, finish, release, stats, swap, take } from './group-core.js';
+import { finish, release, stats, swap, take } from './group-core.js';
 
 // Identifies the project and is public by design; firestore.rules is what protects the data.
 const CONFIG = {
@@ -133,7 +133,7 @@ function inviteHref(group) {
 }
 
 const show = (...nodes) => {
-  screen.replaceChildren(...nodes);
+  screen.replaceChildren(...nodes.filter(Boolean));
   window.scrollTo(0, 0);
 };
 
@@ -162,8 +162,9 @@ function action(label, className, work) {
   button.onclick = async () => {
     screen.querySelectorAll('button').forEach((b) => (b.disabled = true));
     try {
-      await work();
+      await work(button);
     } catch {
+      button.classList.remove('finish');
       screen.querySelectorAll('button').forEach((b) => (b.disabled = false));
       screen.querySelector('.error')?.remove();
       (button.closest('.row') || button).before(el('p', { className: 'error', textContent: line(OFFLINE) }));
@@ -172,67 +173,72 @@ function action(label, className, work) {
   return button;
 }
 
-function showPerek(group, perek) {
+/** Everything happens on this one screen. `marked`: this perek was read, so only next or finish are left. */
+function showPerek(group, perek, marked = false, bookFinished = false) {
   const verses = chapters[perek - 1].flatMap((verse, i) => [
     el('b', { textContent: `${heNum(i + 1)} ` }),
     `${IOS ? stripTaamim(verse) : verse} `,
   ]);
-  show(
+  const s = stats(group, Date.now());
+  const nodes = [
     heading(group),
-    counts(stats(group, Date.now())),
+    counts(s),
     el('h2', { textContent: line([`פרק ${heNum(perek)}`, `Psalm ${perek}`]) }),
     el('p', { className: 'perek', lang: 'he' }, ...verses),
+    marked ? el('p', { className: 'thanks' }, both(bookFinished ? ['תודה! ספר תהילים הושלם', 'Thank you! The sefer is complete'] : ['תודה! הפרק נקרא', 'Thank you! The perek is read'])) : null,
+    marked ? el('p', { className: 'totals' }, both([`סך הכול: ספרים שהושלמו ${s.booksDone} · פרקים שנקראו ${s.totalRead} · קוראים ${s.readers}`, `In all: books complete ${s.booksDone} · perakim read ${s.totalRead} · readers ${s.readers}`])) : null,
     el(
       'div',
-      { className: 'row' },
-      action(['סיימתי', 'I finished'], 'finish', async () => {
-        const { group: next } = await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
-        showDone(next, next.round > group.round);
-      }),
-      // This perek is read: straight on to the next one.
+      { className: marked ? 'row two' : 'row' },
+      marked
+        ? el('button', { className: 'finish', disabled: true }, both(['✓ סיימתי', '✓ I finished']))
+        : action(['סיימתי', 'I finished'], '', async (button) => {
+            button.classList.add('finish');
+            const { group: next } = await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
+            // Stay at the same place on the page: the reader only pressed a button.
+            const top = window.scrollY;
+            showPerek(next, perek, true, next.round > group.round);
+            window.scrollTo(0, top);
+          }),
+      // Straight on to the next perek; this one counts as read if it isn't marked yet.
       action(['פרק נוסף', 'Next perek'], 'main', async () => {
-        await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
+        if (!marked) await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
         await open();
       }),
-      action(['פרק אחר', 'Different perek'], '', async () => {
-        const result = await change((g, me, now) => swap(g, me, now));
-        showPerek(result.group, result.perek);
-        if (result.perek === perek) screen.querySelector('.row').before(el('p', { className: 'error', textContent: line(['אין כרגע פרק פנוי אחר', 'No other perek is free right now']) }));
-      }),
+      marked
+        ? null
+        : action(['פרק אחר', 'Different perek'], '', async () => {
+            const result = await change((g, me, now) => swap(g, me, now));
+            showPerek(result.group, result.perek);
+            if (result.perek === perek) screen.querySelector('.row').before(el('p', { className: 'error', textContent: line(['אין כרגע פרק פנוי אחר', 'No other perek is free right now']) }));
+          }),
     ),
-    action(['אין לי זמן, אקרא אחר כך', "No time now, I'll read later"], '', async () => {
-      const { group: next } = await change((g, me, now) => ({ group: release(g, me, now) }));
-      show(heading(next), counts(stats(next, Date.now())), el('p', { className: 'center' }, both(['הפרק חזר לקבוצה. אפשר לחזור לקישור מתי שנוח.', 'The perek went back to the group. Come back to the link whenever you like.'])), el('button', { className: 'main', onclick: open }, both(['קרא פרק', 'Read a perek'])), exitButton());
-    }),
+    el(
+      'div',
+      { className: marked ? 'row one' : 'row two' },
+      // A perek not marked as read goes back to the group at once.
+      el('button', {
+        async onclick() {
+          if (!marked) await change((g, me, now) => ({ group: release(g, me, now) })).catch(() => {});
+          exit();
+        },
+      }, both(['סיום', 'Finish'])),
+      marked
+        ? null
+        : action(['אקרא אחר כך', 'Read later'], '', async () => {
+            const { group: next } = await change((g, me, now) => ({ group: release(g, me, now) }));
+            show(heading(next), counts(stats(next, Date.now())), el('p', { className: 'center' }, both(['הפרק חזר לקבוצה. אפשר לחזור לקישור מתי שנוח.', 'The perek went back to the group. Come back to the link whenever you like.'])), el('button', { className: 'main', onclick: open }, both(['קרא פרק', 'Read a perek'])), el('button', { onclick: exit }, both(['סיום', 'Finish'])));
+          }),
+    ),
     el('a', { className: 'btn', href: inviteHref(group) }, both(['שלח את הקישור בווטסאפ', 'Send the link on WhatsApp'])),
-  );
+  ];
+  show(...nodes);
 }
 
 /** Closes the page where the browser allows it, and otherwise says it can be closed. */
-function exitButton() {
-  return el('button', {
-    onclick() {
-      window.close();
-      show(el('p', { className: 'thanks' }, both(['תודה רבה', 'Thank you'])), el('p', { className: 'center' }, both(['אפשר לסגור את הדף.', 'You can close this page.'])), el('button', { onclick: open }, both(['קרא פרק נוסף', 'Read another perek'])));
-    },
-  }, both(['סיום', 'Finish']));
-}
-
-function showDone(group, bookFinished) {
-  const s = stats(group, Date.now());
-  const bar = el('div', { className: 'bar' });
-  bar.style.width = `${(s.read / PERAKIM) * 100}%`;
-  show(
-    el('p', { className: 'thanks' }, both(bookFinished ? ['תודה! ספר תהילים הושלם', 'Thank you! The sefer is complete'] : ['תודה! הפרק נקרא', 'Thank you! The perek is read'])),
-    heading(group),
-    el('div', { className: 'track' }, bar),
-    counts(s),
-    el('p', { className: 'muted' }, both([`סך הכול: ספרים שהושלמו ${s.booksDone} · פרקים שנקראו ${s.totalRead} · קוראים ${s.readers}`, `In all: books complete ${s.booksDone} · perakim read ${s.totalRead} · readers ${s.readers}`])),
-    el('div', { style: 'height:12px' }),
-    el('button', { className: 'main', onclick: open }, both(['קרא פרק נוסף', 'Read another perek'])),
-    exitButton(),
-    el('a', { className: 'btn', href: inviteHref(group) }, both(['שלח את הקישור בווטסאפ', 'Send the link on WhatsApp'])),
-  );
+function exit() {
+  window.close();
+  show(el('p', { className: 'thanks' }, both(['תודה רבה', 'Thank you'])), el('p', { className: 'center' }, both(['אפשר לסגור את הדף.', 'You can close this page.'])), el('button', { onclick: open }, both(['קרא פרק נוסף', 'Read another perek'])));
 }
 
 /** Gives this reader a perek: the one they hold, or the next free one. */
