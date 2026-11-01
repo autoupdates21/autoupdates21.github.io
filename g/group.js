@@ -16,7 +16,7 @@ const CONFIG = {
   appId: '1:856272399551:web:3124aba108c3189a25ea0a',
 };
 const TIMEOUT_MS = 15000;
-const OFFLINE = 'אין חיבור. בדקו את האינטרנט ונסו שוב.';
+const OFFLINE = ['אין חיבור. בדקו את האינטרנט ונסו שוב.', 'No connection. Check your internet and try again.'];
 const APK = 'https://github.com/autoupdates21/limud-releases/releases/latest';
 
 const id = new URLSearchParams(location.search).get('r');
@@ -27,6 +27,20 @@ const screen = document.getElementById('screen');
 // ta'amim are the marks most likely to collide there, so iPhones show nikud only for now.
 const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const ANDROID = /Android/.test(navigator.userAgent);
+
+// Everything shows in both languages: the reader's language first, the other one under it.
+const LANG = new URLSearchParams(location.search).get('lang') || navigator.language || 'he';
+const HEBREW = /^(he|iw)/i.test(LANG);
+document.documentElement.lang = HEBREW ? 'he' : 'en';
+document.documentElement.dir = HEBREW ? 'rtl' : 'ltr';
+const inOrder = ([he, en]) => (HEBREW ? [he, en] : [en, he]);
+/** Both languages on one line. */
+const line = (pair) => inOrder(pair).join(' · ');
+/** Both languages on two lines, the second one smaller. */
+function both(pair) {
+  const [main, second] = inOrder(pair);
+  return [main, el('span', { className: 'second', textContent: second })];
+}
 
 /** This browser's memory of who it is and which groups it joined; it may be blocked or cleared. */
 const store = (() => {
@@ -59,7 +73,7 @@ const store = (() => {
 /** Builds an element; text always goes in as text, so nothing from the server can run as code. */
 function el(tag, props = {}, ...children) {
   const node = Object.assign(document.createElement(tag), props);
-  node.append(...children.filter((c) => c !== null && c !== undefined));
+  node.append(...children.flat().filter((c) => c !== null && c !== undefined));
   return node;
 }
 
@@ -87,6 +101,8 @@ function change(step) {
 }
 
 const groupTitle = (g) => (g.purpose === 'refua' ? `לרפואת ${g.name}` : g.name);
+/** The title in the reader's language; a name is shown as it was written. */
+const shownTitle = (g) => (g.purpose === 'refua' && !HEBREW ? `For the healing of ${g.name}` : groupTitle(g));
 
 /** A Hebrew numeral, as in the app. */
 function heNum(n) {
@@ -112,7 +128,7 @@ const loadText = async () => (chapters ??= await (await fetch('tehillim.json')).
 
 function inviteHref(group) {
   const link = `${location.origin}${location.pathname}?r=${encodeURIComponent(id)}`;
-  const text = `תהילים בקבוצה ${groupTitle(group)}: כל אחד מקבל פרק אחר, ויחד משלימים את הספר. להצטרפות: ${link}`;
+  const text = `תהילים בקבוצה ${groupTitle(group)}: כל אחד מקבל פרק אחר, ויחד משלימים את הספר. להצטרפות: ${link}\n\nGroup Tehillim: everyone gets a different perek, and together you complete the sefer. Join here: ${link}`;
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
@@ -121,28 +137,28 @@ const show = (...nodes) => {
   window.scrollTo(0, 0);
 };
 
-function message(text, again) {
-  show(el('p', { className: 'center', textContent: text }), again ? el('button', { className: 'main', textContent: 'נסה שוב', onclick: again }) : null);
+function message(pair, again) {
+  show(el('p', { className: 'center' }, both(pair)), again ? el('button', { className: 'main', onclick: again }, both(['נסה שוב', 'Try again'])) : null);
 }
 
 function heading(group) {
   return el(
     'div',
     {},
-    el('h1', { textContent: groupTitle(group) }),
-    group.note ? el('p', { className: 'muted', textContent: group.note }) : null,
-    el('p', { className: 'muted', textContent: `ספר ${group.round}` }),
+    el('h1', { textContent: shownTitle(group), dir: 'auto' }),
+    group.note ? el('p', { className: 'muted', textContent: group.note, dir: 'auto' }) : null,
+    el('p', { className: 'muted', textContent: line([`ספר ${group.round}`, `Book ${group.round}`]) }),
   );
 }
 
 function counts(s) {
-  const box = (n, label) => el('div', { className: 'count' }, el('b', { textContent: n }), el('span', { textContent: label }));
-  return el('div', { className: 'counts' }, box(s.read, 'נקראו'), box(s.reading, 'בקריאה'), box(s.free, 'פנויים'));
+  const box = (n, label) => el('div', { className: 'count' }, el('b', { textContent: n }), el('span', {}, both(label)));
+  return el('div', { className: 'counts' }, box(s.read, ['נקראו', 'Read']), box(s.reading, ['בקריאה', 'Being read']), box(s.free, ['פנויים', 'Free']));
 }
 
 /** A button that shows an error and stays usable if its action fails. */
 function action(label, className, work) {
-  const button = el('button', { className, textContent: label });
+  const button = el('button', { className }, both(label));
   button.onclick = async () => {
     screen.querySelectorAll('button').forEach((b) => (b.disabled = true));
     try {
@@ -150,7 +166,7 @@ function action(label, className, work) {
     } catch {
       screen.querySelectorAll('button').forEach((b) => (b.disabled = false));
       screen.querySelector('.error')?.remove();
-      button.before(el('p', { className: 'error', textContent: OFFLINE }));
+      button.before(el('p', { className: 'error', textContent: line(OFFLINE) }));
     }
   };
   return button;
@@ -164,23 +180,33 @@ function showPerek(group, perek) {
   show(
     heading(group),
     counts(stats(group, Date.now())),
-    el('h2', { textContent: `פרק ${heNum(perek)}` }),
+    el('h2', { textContent: line([`פרק ${heNum(perek)}`, `Psalm ${perek}`]) }),
     el('p', { className: 'perek', lang: 'he' }, ...verses),
-    action('סיימתי לקרוא', 'finish', async () => {
+    action(['סיימתי לקרוא', 'I finished reading'], 'finish', async () => {
       const { group: next } = await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
       showDone(next, next.round > group.round);
     }),
-    action('תן לי פרק אחר', '', async () => {
+    action(['תן לי פרק אחר', 'Give me another perek'], '', async () => {
       const result = await change((g, me, now) => swap(g, me, now));
       showPerek(result.group, result.perek);
-      if (result.perek === perek) screen.querySelector('.finish').before(el('p', { className: 'error', textContent: 'אין כרגע פרק פנוי אחר' }));
+      if (result.perek === perek) screen.querySelector('.finish').before(el('p', { className: 'error', textContent: line(['אין כרגע פרק פנוי אחר', 'No other perek is free right now']) }));
     }),
-    action('אין לי זמן, אקרא אחר כך', '', async () => {
+    action(['אין לי זמן, אקרא אחר כך', "No time now, I'll read later"], '', async () => {
       const { group: next } = await change((g, me, now) => ({ group: release(g, me, now) }));
-      show(heading(next), counts(stats(next, Date.now())), el('p', { className: 'center', textContent: 'הפרק חזר לקבוצה. אפשר לחזור לקישור מתי שנוח.' }), el('button', { className: 'main', textContent: 'קרא פרק', onclick: open }));
+      show(heading(next), counts(stats(next, Date.now())), el('p', { className: 'center' }, both(['הפרק חזר לקבוצה. אפשר לחזור לקישור מתי שנוח.', 'The perek went back to the group. Come back to the link whenever you like.'])), el('button', { className: 'main', onclick: open }, both(['קרא פרק', 'Read a perek'])), exitButton());
     }),
-    el('a', { className: 'btn', href: inviteHref(group), textContent: 'שלח את הקישור בווטסאפ' }),
+    el('a', { className: 'btn', href: inviteHref(group) }, both(['שלח את הקישור בווטסאפ', 'Send the link on WhatsApp'])),
   );
+}
+
+/** Closes the page where the browser allows it, and otherwise says it can be closed. */
+function exitButton() {
+  return el('button', {
+    onclick() {
+      window.close();
+      show(el('p', { className: 'thanks' }, both(['תודה רבה', 'Thank you'])), el('p', { className: 'center' }, both(['אפשר לסגור את הדף.', 'You can close this page.'])), el('button', { onclick: open }, both(['קרא פרק נוסף', 'Read another perek'])));
+    },
+  }, both(['סיום', 'Finish']));
 }
 
 function showDone(group, bookFinished) {
@@ -188,20 +214,21 @@ function showDone(group, bookFinished) {
   const bar = el('div', { className: 'bar' });
   bar.style.width = `${(s.read / PERAKIM) * 100}%`;
   show(
-    el('p', { className: 'thanks', textContent: bookFinished ? 'תודה! ספר תהילים הושלם' : 'תודה! הפרק נקרא' }),
+    el('p', { className: 'thanks' }, both(bookFinished ? ['תודה! ספר תהילים הושלם', 'Thank you! The sefer is complete'] : ['תודה! הפרק נקרא', 'Thank you! The perek is read'])),
     heading(group),
     el('div', { className: 'track' }, bar),
     counts(s),
-    el('p', { className: 'muted', textContent: `סך הכול: ספרים שהושלמו ${s.booksDone} · פרקים שנקראו ${s.totalRead} · קוראים ${s.readers}` }),
+    el('p', { className: 'muted' }, both([`סך הכול: ספרים שהושלמו ${s.booksDone} · פרקים שנקראו ${s.totalRead} · קוראים ${s.readers}`, `In all: books complete ${s.booksDone} · perakim read ${s.totalRead} · readers ${s.readers}`])),
     el('div', { style: 'height:12px' }),
-    el('button', { className: 'main', textContent: 'קרא פרק נוסף', onclick: open }),
-    el('a', { className: 'btn', href: inviteHref(group), textContent: 'שלח את הקישור בווטסאפ' }),
+    el('button', { className: 'main', onclick: open }, both(['קרא פרק נוסף', 'Read another perek'])),
+    exitButton(),
+    el('a', { className: 'btn', href: inviteHref(group) }, both(['שלח את הקישור בווטסאפ', 'Send the link on WhatsApp'])),
   );
 }
 
 /** Gives this reader a perek: the one they hold, or the next free one. */
 async function open() {
-  show(el('p', { className: 'center', textContent: 'טוען…' }));
+  show(el('p', { className: 'center', textContent: line(['טוען…', 'Loading…']) }));
   try {
     await loadText();
     const joined = store.joined();
@@ -212,9 +239,9 @@ async function open() {
     });
     if (perek && !joined) store.markJoined();
     if (perek) showPerek(group, perek);
-    else show(heading(group), counts(stats(group, Date.now())), el('p', { className: 'center', textContent: 'כל הפרקים נמצאים כרגע בקריאה. נסו שוב בעוד כמה דקות.' }), el('button', { className: 'main', textContent: 'נסה שוב', onclick: open }));
+    else show(heading(group), counts(stats(group, Date.now())), el('p', { className: 'center' }, both(['כל הפרקים נמצאים כרגע בקריאה. נסו שוב בעוד כמה דקות.', 'All the perakim are being read right now. Try again in a few minutes.'])), el('button', { className: 'main', onclick: open }, both(['נסה שוב', 'Try again'])));
   } catch (e) {
-    if (e.message === 'not-found') message('הקבוצה לא נמצאה. בדקו את הקישור.');
+    if (e.message === 'not-found') message(['הקבוצה לא נמצאה. בדקו את הקישור.', "This group wasn't found. Check the link."]);
     else message(OFFLINE, open);
   }
 }
@@ -222,12 +249,13 @@ async function open() {
 function footer() {
   const box = document.getElementById('footer');
   if (ANDROID) {
-    box.append('רוצים את האפליקציה? ', el('a', { href: APK, textContent: 'הורדה ללימוד' }));
-    if (id) box.append(' · ', el('a', { href: `limud://g?r=${encodeURIComponent(id)}`, textContent: 'פתיחה באפליקציה' }));
+    box.append(`${line(['רוצים את האפליקציה?', 'Want the app?'])} `, el('a', { href: APK, textContent: line(['הורדה ללימוד', 'Download Limud']) }));
+    if (id) box.append(' · ', el('a', { href: `limud://g?r=${encodeURIComponent(id)}`, textContent: line(['פתיחה באפליקציה', 'Open in the app']) }));
     box.hidden = false;
   }
 }
 
+document.getElementById('brand').textContent = line(['תהילים בקבוצה', 'Group Tehillim']);
 footer();
 if (id) open();
-else message('כדי להצטרף צריך קישור לקבוצה. בקשו אותו ממי ששלח לכם.');
+else message(['כדי להצטרף צריך קישור לקבוצה. בקשו אותו ממי ששלח לכם.', 'To join you need a link to a group. Ask whoever sent you here.']);
