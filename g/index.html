@@ -33,6 +33,8 @@
   .perek { direction: rtl; text-align: right; font-family: EzraSIL, serif; font-size: 22px; line-height: 1.8; margin: 0 0 16px; overflow-wrap: break-word; }
   .perek b { color: var(--accent); font-size: 13px; font-family: system-ui, sans-serif; }
   button, a.btn { display: block; width: 100%; font: inherit; text-align: center; text-decoration: none; cursor: pointer; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 8px; background: var(--card); color: var(--text); }
+  .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .row button { font-size: 13px; padding: 10px 4px; }
   button.finish { background: var(--finish); border-color: var(--finish); color: #fff; font-weight: 700; }
   button.main { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
   button:disabled { opacity: 0.6; }

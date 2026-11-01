@@ -166,7 +166,7 @@ function action(label, className, work) {
     } catch {
       screen.querySelectorAll('button').forEach((b) => (b.disabled = false));
       screen.querySelector('.error')?.remove();
-      button.before(el('p', { className: 'error', textContent: line(OFFLINE) }));
+      (button.closest('.row') || button).before(el('p', { className: 'error', textContent: line(OFFLINE) }));
     }
   };
   return button;
@@ -182,15 +182,24 @@ function showPerek(group, perek) {
     counts(stats(group, Date.now())),
     el('h2', { textContent: line([`פרק ${heNum(perek)}`, `Psalm ${perek}`]) }),
     el('p', { className: 'perek', lang: 'he' }, ...verses),
-    action(['סיימתי לקרוא', 'I finished reading'], 'finish', async () => {
-      const { group: next } = await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
-      showDone(next, next.round > group.round);
-    }),
-    action(['תן לי פרק אחר', 'Give me another perek'], '', async () => {
-      const result = await change((g, me, now) => swap(g, me, now));
-      showPerek(result.group, result.perek);
-      if (result.perek === perek) screen.querySelector('.finish').before(el('p', { className: 'error', textContent: line(['אין כרגע פרק פנוי אחר', 'No other perek is free right now']) }));
-    }),
+    el(
+      'div',
+      { className: 'row' },
+      action(['סיימתי לקרוא', 'I finished'], 'finish', async () => {
+        const { group: next } = await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
+        showDone(next, next.round > group.round);
+      }),
+      // This perek is read: straight on to the next one.
+      action(['קרא פרק נוסף', 'Read another'], 'main', async () => {
+        await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
+        await open();
+      }),
+      action(['פרק אחר', 'Different perek'], '', async () => {
+        const result = await change((g, me, now) => swap(g, me, now));
+        showPerek(result.group, result.perek);
+        if (result.perek === perek) screen.querySelector('.row').before(el('p', { className: 'error', textContent: line(['אין כרגע פרק פנוי אחר', 'No other perek is free right now']) }));
+      }),
+    ),
     action(['אין לי זמן, אקרא אחר כך', "No time now, I'll read later"], '', async () => {
       const { group: next } = await change((g, me, now) => ({ group: release(g, me, now) }));
       show(heading(next), counts(stats(next, Date.now())), el('p', { className: 'center' }, both(['הפרק חזר לקבוצה. אפשר לחזור לקישור מתי שנוח.', 'The perek went back to the group. Come back to the link whenever you like.'])), el('button', { className: 'main', onclick: open }, both(['קרא פרק', 'Read a perek'])), exitButton());
