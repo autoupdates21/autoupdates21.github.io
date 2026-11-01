@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.autoupdates21.limud",
+      "sha256_cert_fingerprints": [
+        "04:D9:F3:05:87:7A:AB:55:B1:E7:16:4F:65:31:2A:58:11:1D:54:9D:89:EF:32:16:7E:35:6E:07:6D:DB:01:25"
+      ]
+    }
+  }
+]

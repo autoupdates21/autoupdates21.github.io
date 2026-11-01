@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>לימוד · תהילים בקבוצה</title>
+<meta property="og:title" content="תהילים בקבוצה · לימוד">
+<meta property="og:description" content="הצטרפו לקריאת תהילים משותפת באפליקציית לימוד">
+<style>
+  :root { --bg: #FBF8F1; --card: #FFFFFF; --text: #2A2620; --muted: #6B655A; --border: #E4DED0; --accent: #1F3A5F; --on-accent: #FFFFFF; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14161A; --card: #1D2026; --text: #EDE8DD; --muted: #A39D91; --border: #2D3139; --accent: #8DB3E2; --on-accent: #14161A; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px 16px; background: var(--bg); color: var(--text); font: 17px/1.6 system-ui, sans-serif; }
+  main { max-width: 420px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
+  p { margin: 0 0 16px; color: var(--muted); }
+  a.btn { display: block; text-align: center; padding: 12px; border-radius: 10px; text-decoration: none; font-weight: 600; margin-bottom: 10px; border: 1px solid var(--accent); color: var(--accent); }
+  a.btn.primary { background: var(--accent); color: var(--on-accent); }
+  small { color: var(--muted); font-size: 13px; display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>תהילים בקבוצה</h1>
+  <p>קריאת תהילים משותפת: כל אחד מקבל פרק אחר, ויחד משלימים את הספר.</p>
+  <a class="btn primary" id="open" href="limud://g">פתח באפליקציה</a>
+  <a class="btn" id="download" href="https://github.com/autoupdates21/limud-releases/releases/latest">הורד את לימוד</a>
+  <small>לאנדרואיד בלבד. אחרי ההתקנה, חזרו לקישור ולחצו על "פתח באפליקציה". ייתכן שאנדרואיד יבקש לאשר התקנה ממקור לא מוכר.</small>
+</main>
+<script>
+  var r = new URLSearchParams(location.search).get('r');
+  if (r) document.getElementById('open').href = 'limud://g?r=' + encodeURIComponent(r);
+  fetch('https://api.github.com/repos/autoupdates21/limud-releases/releases/latest')
+    .then(function (res) { return res.json(); })
+    .then(function (release) {
+      var apk = (release.assets || []).filter(function (a) { return /\.apk$/.test(a.name); })[0];
+      if (apk) document.getElementById('download').href = apk.browser_download_url;
+    })
+    .catch(function () {});
+</script>
+</body>
+</html>
