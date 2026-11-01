@@ -185,12 +185,12 @@ function showPerek(group, perek) {
     el(
       'div',
       { className: 'row' },
-      action(['סיימתי לקרוא', 'I finished'], 'finish', async () => {
+      action(['סיימתי', 'I finished'], 'finish', async () => {
         const { group: next } = await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
         showDone(next, next.round > group.round);
       }),
       // This perek is read: straight on to the next one.
-      action(['קרא פרק נוסף', 'Read another'], 'main', async () => {
+      action(['פרק נוסף', 'Next perek'], 'main', async () => {
         await change((g, me, now) => ({ group: finish(g, me, perek, now) }));
         await open();
       }),
