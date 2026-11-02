@@ -121,7 +121,7 @@ function heNum(n) {
 }
 
 /** Same as stripTaamim in src/lib/torah.ts. */
-const stripTaamim = (s) => s.replace(/[֑-ֽ֯]/g, '').replace(/\s*׀\s*/g, ' ');
+const stripTaamim = (s) => s.replace(/[\u0591-\u05AF\u05BD]/g, '').replace(/\s*׀\s*/g, ' ');
 
 let chapters = null;
 const loadText = async () => (chapters ??= await (await fetch('tehillim.json')).json());
